@@ -11,7 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ml.shubham0204.docqa.ui.screens.chat.ChatScreen
 import com.ml.shubham0204.docqa.ui.screens.docs.DocsScreen
-import com.ml.shubham0204.docqa.ui.screens.edit_api_key.EditAPIKeyScreen
+import com.ml.shubham0204.docqa.ui.screens.edit_settings.EditSettingsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,11 +26,11 @@ class MainActivity : ComponentActivity() {
                 exitTransition = { fadeOut() },
             ) {
                 composable("docs") { DocsScreen(onBackClick = { navHostController.navigateUp() }) }
-                composable("edit-api-key") { EditAPIKeyScreen(onBackClick = { navHostController.navigateUp() }) }
+                composable("edit-api-key") { EditSettingsScreen(onBackClick = { navHostController.navigateUp() }) }
                 composable("chat") {
                     ChatScreen(
                         onOpenDocsClick = { navHostController.navigate("docs") },
-                        onEditAPIKeyClick = { navHostController.navigate("edit-api-key") },
+                        onEditSettings = { navHostController.navigate("edit-api-key") },
                     )
                 }
             }

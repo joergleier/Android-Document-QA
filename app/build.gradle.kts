@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     id("com.google.devtools.ksp")
+    id("de.undercouch.download") version "5.5.0"
 }
 
 android {
@@ -86,7 +87,7 @@ dependencies {
     // Sentence Embeddings
     // https://github.com/shubham0204/Sentence-Embeddings-Android
     implementation(files("libs/sentence_embeddings.aar"))
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
+    implementation(libs.onnxruntime.android)
 
     // iTextPDF - for parsing PDFs
     implementation(libs.itextpdf)
@@ -97,6 +98,9 @@ dependencies {
 
     // Gemini SDK - LLM
     implementation(libs.generativeai)
+
+    // MediaPipe - local LLM on device
+    implementation(libs.tasks.genai)
 
     // compose-markdown
     // https://github.com/jeziellago/compose-markdown
@@ -109,7 +113,7 @@ dependencies {
     ksp(libs.koin.ksp.compiler)
 
     // For secured/encrypted shared preferences
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -121,3 +125,32 @@ dependencies {
 }
 
 apply(plugin = "io.objectbox")
+
+// download local model
+val rawDir = file("src/main/res/raw")
+
+tasks.register("ensureAssetDirExists") {
+    doLast {
+        if (!rawDir.exists()) {
+            rawDir.mkdirs()
+        }
+    }
+}
+
+tasks.register<de.undercouch.gradle.tasks.download.Download>("downloadMobileBertModel") {
+    description = "Downloads the MobileBERT TFLite model."
+    group = "build setup" // Optional: for task organization in ./gradlew tasks
+
+    src("https://storage.googleapis.com/mediapipe-models/text_embedder/bert_embedder/float32/1/bert_embedder.tflite")
+    dest(File(rawDir, "mobile_bert.tflite"))
+    overwrite(false)
+    onlyIfModified(true) // Good practice: only download if remote changed or local is missing
+
+    // Make sure the directory exists before attempting to download
+    dependsOn(tasks.named("ensureAssetDirExists"))
+}
+
+tasks.named("preBuild").configure {
+    //dependsOn(tasks.named("downloadMobileBertModel"))
+}
+

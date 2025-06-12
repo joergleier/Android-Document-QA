@@ -1,12 +1,16 @@
 package com.ml.shubham0204.docqa.ui.screens.chat
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.ml.shubham0204.docqa.data.ChunksDB
 import com.ml.shubham0204.docqa.data.DocumentsDB
 import com.ml.shubham0204.docqa.data.GeminiAPIKey
+import com.ml.shubham0204.docqa.data.ModelSettings
 import com.ml.shubham0204.docqa.data.RetrievedContext
 import com.ml.shubham0204.docqa.domain.embeddings.SentenceEmbeddingProvider
 import com.ml.shubham0204.docqa.domain.llm.GeminiRemoteAPI
+import com.ml.shubham0204.docqa.domain.llm.LocalModelProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +24,9 @@ class ChatViewModel(
     private val chunksDB: ChunksDB,
     private val geminiAPIKey: GeminiAPIKey,
     private val sentenceEncoder: SentenceEmbeddingProvider,
+    private val localModelProvider: LocalModelProvider,
+    private val modelSettings: ModelSettings
+
 ) : ViewModel() {
     private val _questionState = MutableStateFlow("")
     val questionState: StateFlow<String> = _questionState
@@ -33,38 +40,61 @@ class ChatViewModel(
     private val _retrievedContextListState = MutableStateFlow(emptyList<RetrievedContext>())
     val retrievedContextListState: StateFlow<List<RetrievedContext>> = _retrievedContextListState
 
+    init{
+        viewModelScope.launch(Dispatchers.IO){
+            localModelProvider.initialize()
+        }
+    }
+
     fun getAnswer(
         query: String,
         prompt: String,
     ) {
-        val apiKey = geminiAPIKey.getAPIKey() ?: throw Exception("Gemini API key is null")
-        val geminiRemoteAPI = GeminiRemoteAPI(apiKey)
-        _isGeneratingResponseState.value = true
-        _questionState.value = query
-        try {
-            var jointContext = ""
-            val retrievedContextList = ArrayList<RetrievedContext>()
-            val queryEmbedding = sentenceEncoder.encodeText(query)
-            chunksDB.getSimilarChunks(queryEmbedding, n = 5).forEach {
-                jointContext += " " + it.second.chunkData
-                retrievedContextList.add(RetrievedContext(it.second.docFileName, it.second.chunkData))
+        if (modelSettings.llmIsLocal) {
+
+            viewModelScope.launch(Dispatchers.IO) {
+                val res = localModelProvider.generateResponse("what is the capital of India?")
+                Log.d("chatviewmodel", res)
             }
-            val inputPrompt = prompt.replace("\$CONTEXT", jointContext).replace("\$QUERY", query)
-            CoroutineScope(Dispatchers.IO).launch {
-                geminiRemoteAPI.getResponse(inputPrompt)?.let { llmResponse ->
-                    _responseState.value = llmResponse
-                    _isGeneratingResponseState.value = false
-                    _retrievedContextListState.value = retrievedContextList
+
+        } else {
+            val apiKey = geminiAPIKey.getAPIKey() ?: throw Exception("Gemini API key is null")
+            val geminiRemoteAPI = GeminiRemoteAPI(apiKey)
+            _isGeneratingResponseState.value = true
+            _questionState.value = query
+            try {
+                var jointContext = ""
+                val retrievedContextList = ArrayList<RetrievedContext>()
+                val queryEmbedding = sentenceEncoder.encodeText(query)
+                chunksDB.getSimilarChunks(queryEmbedding, n = 5).forEach {
+                    jointContext += " " + it.second.chunkData
+                    retrievedContextList.add(
+                        RetrievedContext(
+                            it.second.docFileName,
+                            it.second.chunkData
+                        )
+                    )
                 }
+                val inputPrompt =
+                    prompt.replace("\$CONTEXT", jointContext).replace("\$QUERY", query)
+                CoroutineScope(Dispatchers.IO).launch {
+                    geminiRemoteAPI.getResponse(inputPrompt)?.let { llmResponse ->
+                        _responseState.value = llmResponse
+                        _isGeneratingResponseState.value = false
+                        _retrievedContextListState.value = retrievedContextList
+                    }
+                }
+            } catch (e: Exception) {
+                _isGeneratingResponseState.value = false
+                _questionState.value = ""
+                throw e
             }
-        } catch (e: Exception) {
-            _isGeneratingResponseState.value = false
-            _questionState.value = ""
-            throw e
         }
     }
 
+
     fun checkNumDocuments(): Boolean = documentsDB.getDocsCount() > 0
 
-    fun checkValidAPIKey(): Boolean = geminiAPIKey.getAPIKey() != null
+    fun checkValidAPIKey(): Boolean = geminiAPIKey.getAPIKey() != null || modelSettings.llmIsLocal
+
 }
