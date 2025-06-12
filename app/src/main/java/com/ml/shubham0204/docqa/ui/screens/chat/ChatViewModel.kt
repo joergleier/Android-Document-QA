@@ -50,23 +50,13 @@ class ChatViewModel(
         query: String,
         prompt: String,
     ) {
-        if (modelSettings.llmIsLocal) {
-
-            viewModelScope.launch(Dispatchers.IO) {
-                val res = localModelProvider.generateResponse("what is the capital of India?")
-                Log.d("chatviewmodel", res)
-            }
-
-        } else {
-            val apiKey = geminiAPIKey.getAPIKey() ?: throw Exception("Gemini API key is null")
-            val geminiRemoteAPI = GeminiRemoteAPI(apiKey)
             _isGeneratingResponseState.value = true
             _questionState.value = query
             try {
                 var jointContext = ""
                 val retrievedContextList = ArrayList<RetrievedContext>()
                 val queryEmbedding = sentenceEncoder.encodeText(query)
-                chunksDB.getSimilarChunks(queryEmbedding, n = 5).forEach {
+                chunksDB.getSimilarChunks(queryEmbedding, n = 1).forEach {
                     jointContext += " " + it.second.chunkData
                     retrievedContextList.add(
                         RetrievedContext(
@@ -78,18 +68,41 @@ class ChatViewModel(
                 val inputPrompt =
                     prompt.replace("\$CONTEXT", jointContext).replace("\$QUERY", query)
                 CoroutineScope(Dispatchers.IO).launch {
-                    geminiRemoteAPI.getResponse(inputPrompt)?.let { llmResponse ->
-                        _responseState.value = llmResponse
-                        _isGeneratingResponseState.value = false
-                        _retrievedContextListState.value = retrievedContextList
+
+
+                    if (modelSettings.llmIsLocal){
+                        // local inference
+                        localModelProvider.generateResponse(inputPrompt).let { llmResponse ->
+                            _responseState.value = llmResponse
+                            _isGeneratingResponseState.value = false
+                            _retrievedContextListState.value = retrievedContextList
+                            Log.d("chatviewmodelexception", "Model Result: $llmResponse")
+                        }
+                        Log.d("chatviewmodelexception", "Model Prompt: $inputPrompt")
+                        //val res = localModelProvider.generateResponse(inputPrompt)
+
+                        //Log.d("chatviewmodelexception", "Model Result: $res")
+
+                    }else {
+                        // cloud inference
+                        val apiKey = geminiAPIKey.getAPIKey() ?: throw Exception("Gemini API key is null")
+                        val geminiRemoteAPI = GeminiRemoteAPI(apiKey)
+
+                        geminiRemoteAPI.getResponse(inputPrompt)?.let { llmResponse ->
+                            _responseState.value = llmResponse
+                            _isGeneratingResponseState.value = false
+                            _retrievedContextListState.value = retrievedContextList
+                        }
                     }
+
                 }
             } catch (e: Exception) {
                 _isGeneratingResponseState.value = false
                 _questionState.value = ""
+                Log.d("chatviewmodelexception", "getAnswer: ${e.message}")
                 throw e
             }
-        }
+       // }
     }
 
 

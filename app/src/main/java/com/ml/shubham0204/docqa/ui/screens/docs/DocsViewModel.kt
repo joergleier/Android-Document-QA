@@ -44,7 +44,7 @@ class DocsViewModel(
                 ),
             )
         setProgressDialogText("Creating chunks...")
-        val chunks = WhiteSpaceSplitter.createChunks(text, chunkSize = 500, chunkOverlap = 50)
+        val chunks = WhiteSpaceSplitter.createChunks(text, chunkSize = 100, chunkOverlap = 10)
         setProgressDialogText("Adding chunks to database...")
         val size = chunks.size
         chunks.forEachIndexed { index, s ->

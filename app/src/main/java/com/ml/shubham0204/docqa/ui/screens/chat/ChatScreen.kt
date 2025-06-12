@@ -273,7 +273,7 @@ private fun QueryInput(
                 try {
                     chatViewModel.getAnswer(
                         questionText,
-                        context.getString(R.string.prompt_1),
+                        context.getString(R.string.prompt_2),
                     )
                 } catch (e: Exception) {
                     createAlertDialog(

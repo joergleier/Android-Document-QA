@@ -12,6 +12,7 @@ class LocalModelProvider(private val context: Context) {
         LlmInference.LlmInferenceOptions.builder()
             .setModelPath("/data/local/tmp/llm/gemma3-1b-it-int4.task")
             .setMaxTopK(64)
+            .setPreferredBackend(LlmInference.Backend.GPU)
             .build()
 
     private var llmInference: LlmInference? = null

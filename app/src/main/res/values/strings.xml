@@ -8,4 +8,13 @@ $CONTEXT
 --------------------------------------------------
 Here is the user\'s query: $QUERY
     </string>
+
+    <string name="prompt_2">
+Answer the user\'s query shortly based on the retrieved context.
+Here is the retrieved context:
+--------------------------------------------------
+$CONTEXT
+--------------------------------------------------
+        Here is the user\'s query: $QUERY
+    </string>
 </resources>
